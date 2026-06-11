@@ -64,3 +64,32 @@ def update_diff_buttons():
                 widget.config(bg=ACCENT, fg="white")
             else:
                 widget.config(bg=BUTTON_BG, fg=TEXT_LIGHT)
+
+for difficulty in ("Easy", "Medium", "Hard"):
+    rb = tk.Radiobutton(btn_row,
+                        text=difficulty,
+                        variable=diff_var,    # all three share the same variable
+                        value=difficulty,     # what diff_var becomes when clicked
+                        command=update_diff_buttons,
+                        font=("Helvetica", 12),
+                        fg=TEXT_LIGHT, bg=BUTTON_BG,
+                        activebackground=BUTTON_HOVER,
+                        activeforeground="white",
+                        selectcolor=ACCENT,
+                        indicatoron=0,        # makes it look like a button
+                        relief="flat",
+                        padx=18, pady=7,
+                        cursor="hand2")
+    rb.pack(side="left", padx=(0, 8))
+ 
+update_diff_buttons()  # apply colors for the default selection
+
+rules = (
+    "Easy: 6×6   |   Medium: 10×10   |   Hard: 15×15\n"
+    "Use arrow keys ← ↑ → ↓ to slide tiles.\n"
+    "Merge matching tiles to score. Fill the board = game over!"
+)
+tk.Label(root, text=rules,
+         font=("Helvetica", 10),
+         fg="#666688", bg=BG_COLOR,
+         justify="center").pack(pady=(8, 20))
