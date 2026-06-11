@@ -27,3 +27,22 @@ tk.Label(root, text="2048",
 tk.Label(root, text="Slide  •  Merge  •  Conquer",
          font=("Helvetica", 13),
          fg="#888888", bg=BG_COLOR).pack(pady=(0, 28))
+
+card = tk.Frame(root, bg=CARD_COLOR)
+card.pack(padx=60, pady=4, fill="x")   # fill="x" stretches it horizontally
+ 
+# ── Player name ───────────────────────────────────────────────────────────────
+tk.Label(card, text="Player Name",
+         font=("Helvetica", 11, "bold"),
+         fg=TEXT_LIGHT, bg=CARD_COLOR).pack(padx=20, pady=(16, 4), anchor="w")
+
+name_var = tk.StringVar()
+
+name_entry = tk.Entry(card,
+                      textvariable=name_var,       # links entry to name_var
+                      font=("Helvetica", 13),
+                      bg="#2a2a4a", fg=TEXT_LIGHT,
+                      insertbackground=TEXT_LIGHT, # cursor color
+                      relief="flat", bd=8)
+name_entry.pack(padx=20, pady=(0, 14), fill="x")
+name_entry.focus()   # put keyboard focus here on launch
