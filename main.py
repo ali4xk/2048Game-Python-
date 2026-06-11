@@ -46,3 +46,21 @@ name_entry = tk.Entry(card,
                       relief="flat", bd=8)
 name_entry.pack(padx=20, pady=(0, 14), fill="x")
 name_entry.focus()   # put keyboard focus here on launch
+
+tk.Label(card, text="Difficulty",
+         font=("Helvetica", 11, "bold"),
+         fg=TEXT_LIGHT, bg=CARD_COLOR).pack(padx=20, pady=(0, 6), anchor="w")
+ 
+diff_var = tk.StringVar(value="Medium")  # default selection
+ 
+btn_row = tk.Frame(card, bg=CARD_COLOR)
+btn_row.pack(padx=20, pady=(0, 20), fill="x")
+ 
+def update_diff_buttons():
+    """Re-color radio buttons so the selected one looks highlighted."""
+    for widget in btn_row.winfo_children():
+        if isinstance(widget, tk.Radiobutton):
+            if widget.cget("text") == diff_var.get():
+                widget.config(bg=ACCENT, fg="white")
+            else:
+                widget.config(bg=BUTTON_BG, fg=TEXT_LIGHT)
