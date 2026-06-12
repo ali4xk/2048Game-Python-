@@ -13,14 +13,19 @@ BUTTON_BG    = "#533483"
 BUTTON_HOVER = "#6a45a8"
 TEXT_LIGHT   = "#e0e0e0"
 
-# Color for each tile value: (background, text color)
-# We'll only need a few for now since new tiles start as 2 or 4
 TILE_COLORS = {
-    0:  ("#cdc1b4", "#776e65"),
-    2:  ("#eee4da", "#776e65"),
-    4:  ("#ede0c8", "#776e65"),
-    8:  ("#f2b179", "#f9f6f2"),
-    16: ("#f59563", "#f9f6f2"),
+    0:    ("#cdc1b4", "#776e65"),
+    2:    ("#eee4da", "#776e65"),
+    4:    ("#ede0c8", "#776e65"),
+    8:    ("#f2b179", "#f9f6f2"),
+    16:   ("#f59563", "#f9f6f2"),
+    32:   ("#f67c5f", "#f9f6f2"),
+    64:   ("#f65e3b", "#f9f6f2"),
+    128:  ("#edcf72", "#f9f6f2"),
+    256:  ("#edcc61", "#f9f6f2"),
+    512:  ("#edc850", "#f9f6f2"),
+    1024: ("#edc53f", "#f9f6f2"),
+    2048: ("#edc22e", "#f9f6f2"),
 }
 
 DIFFICULTY = {
@@ -29,34 +34,116 @@ DIFFICULTY = {
     "Hard":   15,
 }
 
+
 # ─── Board class ──────────────────────────────────────────────────────────────
-# This class represents the game's data — the grid of numbers — completely
-# separate from how it's drawn. Keeping "data" and "drawing" separate makes
-# the code much easier to extend later (movement, scoring, etc.)
 class Board:
     def __init__(self, size):
         self.size = size
         self.score = 0
-        # Build a size×size grid filled with zeros.
-        # This is a "list of lists" — grid[row][col]
         self.grid = [[0] * size for _ in range(size)]
-        # Place the first two starting tiles
         self.spawn_tile()
         self.spawn_tile()
 
     def spawn_tile(self):
-        """Find all empty cells and put a 2 (90%) or 4 (10%) in a random one."""
         empty_cells = []
         for r in range(self.size):
             for c in range(self.size):
                 if self.grid[r][c] == 0:
                     empty_cells.append((r, c))
-
         if not empty_cells:
-            return  # board is full, nothing to spawn
-
+            return
         r, c = random.choice(empty_cells)
         self.grid[r][c] = 4 if random.random() < 0.1 else 2
+
+    # ── Movement helpers ─────────────────────────────────────────────────────
+    # The trick used by your C++ version: every direction is converted into a
+    # "slide everything left" operation by rotating/flipping the grid first,
+    # doing the left-slide, then undoing the rotation/flip.
+
+    def _compress_row(self, row):
+        """Remove zeros, slide nonzero values to the left, refill with zeros.
+        e.g. [0, 2, 0, 4] -> [2, 4, 0, 0]"""
+        non_zero = [value for value in row if value != 0]
+        non_zero += [0] * (self.size - len(non_zero))
+        return non_zero
+
+    def _merge_row(self, row):
+        """Merge adjacent equal values, left to right.
+        e.g. [2, 2, 4, 0] -> [4, 4, 0, 0]  (score increases by 4)"""
+        for i in range(self.size - 1):
+            if row[i] != 0 and row[i] == row[i + 1]:
+                row[i] = row[i] * 2
+                self.score += row[i]
+                row[i + 1] = 0
+        return row
+
+    def _slide_row_left(self, row):
+        """Full left-slide for one row: compress -> merge -> compress again
+        (the second compress closes the gap left behind by a merge)."""
+        row = self._compress_row(row)
+        row = self._merge_row(row)
+        row = self._compress_row(row)
+        return row
+
+    def _rotate_cw(self):
+        """Rotate the whole grid 90° clockwise.
+        zip(*grid[::-1]) is the standard one-liner for this: reverse the row
+        order first, then transpose rows<->columns with zip."""
+        self.grid = [list(row) for row in zip(*self.grid[::-1])]
+
+    def _rotate_ccw(self):
+        """Rotate the whole grid 90° counter-clockwise.
+        Transpose first with zip(*grid), then reverse the row order."""
+        self.grid = [list(row) for row in zip(*self.grid)][::-1]
+
+    def move(self, direction):
+        """direction: 'left', 'right', 'up', or 'down'.
+        Returns True if the grid actually changed (so we know whether to
+        spawn a new tile)."""
+
+        # Remember the grid before moving so we can detect a real change
+        before = [row[:] for row in self.grid]   # row[:] makes a copy of each row
+
+        if direction == "left":
+            self.grid = [self._slide_row_left(row) for row in self.grid]
+
+        elif direction == "right":
+            # Reverse each row, slide left, reverse back
+            self.grid = [row[::-1] for row in self.grid]
+            self.grid = [self._slide_row_left(row) for row in self.grid]
+            self.grid = [row[::-1] for row in self.grid]
+
+        elif direction == "up":
+            # Rotate counter-clockwise so each column becomes a row (with the
+            # top of the column now on the left). Sliding left = sliding up.
+            # Rotate clockwise afterwards to restore the original orientation.
+            self._rotate_ccw()
+            self.grid = [self._slide_row_left(row) for row in self.grid]
+            self._rotate_cw()
+
+        elif direction == "down":
+            # Rotate clockwise so each column becomes a row (with the bottom
+            # of the column now on the left). Sliding left = sliding down.
+            self._rotate_cw()
+            self.grid = [self._slide_row_left(row) for row in self.grid]
+            self._rotate_ccw()
+
+        changed = (self.grid != before)
+        if changed:
+            self.spawn_tile()
+        return changed
+
+    def is_game_over(self):
+        """No empty cells AND no two adjacent equal tiles in any direction."""
+        for r in range(self.size):
+            for c in range(self.size):
+                if self.grid[r][c] == 0:
+                    return False
+                if c + 1 < self.size and self.grid[r][c] == self.grid[r][c + 1]:
+                    return False
+                if r + 1 < self.size and self.grid[r][c] == self.grid[r + 1][c]:
+                    return False
+        return True
 
 
 # ─── Root window ──────────────────────────────────────────────────────────────
@@ -69,7 +156,6 @@ current_frame = None
 
 
 def switch_frame(new_frame):
-    """Destroy whatever frame is currently showing and display a new one."""
     global current_frame
     if current_frame is not None:
         current_frame.destroy()
@@ -79,7 +165,6 @@ def switch_frame(new_frame):
 
 # ─── MENU SCREEN ──────────────────────────────────────────────────────────────
 def build_menu():
-    """Create and return the menu frame (same as Step 1, slightly trimmed)."""
     frame = tk.Frame(root, bg=BG_COLOR)
 
     tk.Label(frame, text="2048",
@@ -156,7 +241,6 @@ def build_menu():
 
         chosen_diff = diff_var.get()
         chosen_size = DIFFICULTY[chosen_diff]
-        # Switch to the game screen, passing along the player's choices
         switch_frame(build_game(name, chosen_diff, chosen_size))
 
     tk.Button(frame, text="▶   Play", command=on_play,
@@ -171,12 +255,10 @@ def build_menu():
 
 # ─── GAME SCREEN ──────────────────────────────────────────────────────────────
 def build_game(player_name, difficulty, size):
-    """Create and return the game frame: a header bar + a drawn grid of tiles."""
-
     frame = tk.Frame(root, bg=BG_COLOR)
-
     board = Board(size)
 
+    # ── Header bar ──────────────────────────────────────────────────────────
     header = tk.Frame(frame, bg=CARD_COLOR)
     header.pack(fill="x")
 
@@ -188,6 +270,12 @@ def build_game(player_name, difficulty, size):
              font=("Helvetica", 11),
              fg="#aaaaaa", bg=CARD_COLOR).pack(side="left", padx=10)
 
+    # Score display — we keep a reference so we can update its text later
+    score_label = tk.Label(header, text="Score: 0",
+                           font=("Helvetica", 13, "bold"),
+                           fg=TEXT_LIGHT, bg=CARD_COLOR)
+    score_label.pack(side="right", padx=16)
+
     def back_to_menu():
         switch_frame(build_menu())
 
@@ -198,6 +286,7 @@ def build_game(player_name, difficulty, size):
               relief="flat", padx=12, pady=5,
               cursor="hand2", bd=0).pack(side="right", padx=12, pady=8)
 
+    # ── Canvas setup ─────────────────────────────────────────────────────────
     PADDING = 6
     if size <= 6:
         cell_px = 80
@@ -216,12 +305,10 @@ def build_game(player_name, difficulty, size):
     canvas.pack()
 
     def cell_rect(r, c):
-        """Return the pixel coordinates (x0, y0, x1, y1) for grid cell (r, c)."""
         x0 = PADDING + c * (cell_px + PADDING)
         y0 = PADDING + r * (cell_px + PADDING)
         return x0, y0, x0 + cell_px, y0 + cell_px
 
-    # Drawing the empty grid background cells once
     for r in range(size):
         for c in range(size):
             x0, y0, x1, y1 = cell_rect(r, c)
@@ -232,7 +319,6 @@ def build_game(player_name, difficulty, size):
         for c in range(size):
             x0, y0, x1, y1 = cell_rect(r, c)
             cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
-
             lbl = tk.Label(canvas, text="", bg=GRID_COLOR, fg=TEXT_LIGHT,
                           font=("Helvetica", 16, "bold"))
             canvas.create_window(cx, cy, window=lbl,
@@ -240,19 +326,49 @@ def build_game(player_name, difficulty, size):
             tile_labels[(r, c)] = lbl
 
     def draw_board():
-        """Read board.grid and update every tile Label's text and color."""
+        """Update every tile's text/color AND refresh the score label."""
         for r in range(size):
             for c in range(size):
                 value = board.grid[r][c]
                 bg, fg = TILE_COLORS.get(value, ("#3c3a32", "#f9f6f2"))
                 lbl = tile_labels[(r, c)]
                 lbl.config(text=str(value) if value else "", bg=bg, fg=fg)
+        score_label.config(text=f"Score: {board.score}")
 
     draw_board()
+
+    # ── Keyboard input ───────────────────────────────────────────────────────
+    # Maps the key tkinter reports (event.keysym) to our direction strings.
+    KEY_MAP = {
+        "Left":  "left",  "a": "left",  "A": "left",
+        "Right": "right", "d": "right", "D": "right",
+        "Up":    "up",    "w": "up",    "W": "up",
+        "Down":  "down",  "s": "down",  "S": "down",
+    }
+
+    def on_key_press(event):
+        direction = KEY_MAP.get(event.keysym)
+        if direction is None:
+            return  # ignore any key we don't care about
+
+        moved = board.move(direction)
+        if not moved:
+            return  # nothing changed (e.g. pressed left but already at left wall)
+
+        draw_board()
+
+        if board.is_game_over():
+            messagebox.showinfo("Game Over",
+                                f"No more moves left!\n\nFinal score: {board.score}")
+            switch_frame(build_menu())
+
+    # bind_all listens for key presses anywhere in the window
+    frame.bind_all("<Key>", on_key_press)
 
     return frame
 
 
+# ─── Start on the menu screen ─────────────────────────────────────────────────
 switch_frame(build_menu())
 
 root.update_idletasks()
