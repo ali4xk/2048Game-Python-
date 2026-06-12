@@ -93,3 +93,26 @@ tk.Label(root, text=rules,
          font=("Helvetica", 10),
          fg="#666688", bg=BG_COLOR,
          justify="center").pack(pady=(8, 20))
+
+def on_play():
+    """Validate inputs and (for now) just print what was chosen."""
+    name = name_var.get().strip()
+ 
+    if not name:
+        # messagebox.showwarning pops up a small warning dialog
+        messagebox.showwarning("Name Required", "Please enter your player name.")
+        return
+ 
+    if " " in name:
+        messagebox.showwarning("No Spaces", "Player name cannot contain spaces.")
+        return
+ 
+    chosen_diff = diff_var.get()
+    chosen_size = DIFFICULTY[chosen_diff]
+ 
+    messagebox.showinfo(
+        "Starting game…",
+        f"Player : {name}\n"
+        f"Mode   : {chosen_diff} ({chosen_size}×{chosen_size} grid)\n\n"
+        "(Game board coming in Step 2!)"
+    )
