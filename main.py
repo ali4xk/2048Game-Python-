@@ -1,6 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
 import random
+import json
+import os
+from datetime import datetime
+
+LEADERBOARD_FILE = "leaderboard.json"
 
 BG_COLOR     = "#1a1a2e"
 CARD_COLOR   = "#16213e"
@@ -32,6 +37,24 @@ DIFFICULTY = {
     "Medium": 6,
     "Hard":   10,
 }
+
+def load_leaderboard():
+    if os.path.exists(LEADERBOARD_FILE):
+        with open(LEADERBOARD_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_score(name, score, difficulty, size):
+    data = load_leaderboard()
+    data.append({
+        "name": name,
+        "score": score,
+        "difficulty": difficulty,
+        "grid_size": size,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    })
+    with open(LEADERBOARD_FILE, "w") as f:
+        json.dump(data, f, indent=2)
 
 class Board:
     def __init__(self, size):
@@ -208,12 +231,23 @@ def build_menu():
         chosen_size = DIFFICULTY[chosen_diff]
         switch_frame(build_game(name, chosen_diff, chosen_size))
 
-    tk.Button(frame, text="▶   Play", command=on_play,
+    btn_row2 = tk.Frame(frame, bg=BG_COLOR)
+    btn_row2.pack(pady=(0, 40))
+
+    tk.Button(btn_row2, text="▶   Play", command=on_play,
               font=("Helvetica", 14, "bold"),
               bg=ACCENT, fg="white",
               activebackground=ACCENT_DARK, activeforeground="white",
               relief="flat", padx=32, pady=12,
-              cursor="hand2", bd=0).pack(pady=(0, 40))
+              cursor="hand2", bd=0).pack(side="left", padx=6)
+
+    tk.Button(btn_row2, text="🏆   Leaderboard",
+              command=lambda: switch_frame(build_leaderboard()),
+              font=("Helvetica", 14, "bold"),
+              bg=BUTTON_BG, fg=TEXT_LIGHT,
+              activebackground=BUTTON_HOVER, activeforeground="white",
+              relief="flat", padx=24, pady=12,
+              cursor="hand2", bd=0).pack(side="left", padx=6)
 
     return frame
 
@@ -239,6 +273,14 @@ def build_game(player_name, difficulty, size):
 
     def back_to_menu():
         switch_frame(build_menu())
+
+    tk.Button(header, text="🏆 Board",
+              command=lambda: switch_frame(build_leaderboard()),
+              font=("Helvetica", 10),
+              bg=BUTTON_BG, fg=TEXT_LIGHT,
+              activebackground=BUTTON_HOVER,
+              relief="flat", padx=12, pady=5,
+              cursor="hand2", bd=0).pack(side="right", padx=4, pady=8)
 
     tk.Button(header, text="↩ Menu", command=back_to_menu,
               font=("Helvetica", 10),
@@ -306,20 +348,149 @@ def build_game(player_name, difficulty, size):
     def on_key_press(event):
         direction = KEY_MAP.get(event.keysym)
         if direction is None:
-            return  # ignore any key we don't care about
+            return  
 
         moved = board.move(direction)
         if not moved:
-            return  # nothing changed (e.g. pressed left but already at left wall)
+            return 
 
         draw_board()
 
         if board.is_game_over():
-            messagebox.showinfo("Game Over",
-                                f"No more moves left!\n\nFinal score: {board.score}")
-            switch_frame(build_menu())
+            save_score(player_name, board.score, difficulty, size)
+            go_to_board = messagebox.askyesno(
+                "Game Over",
+                f"No more moves left!\n\nFinal score: {board.score}\n\nView Leaderboard?"
+            )
+            if go_to_board:
+                switch_frame(build_leaderboard())
+            else:
+                switch_frame(build_menu())
 
     frame.bind_all("<Key>", on_key_press)
+
+    return frame
+
+def build_leaderboard():
+    frame = tk.Frame(root, bg=BG_COLOR)
+
+    header = tk.Frame(frame, bg=CARD_COLOR)
+    header.pack(fill="x")
+
+    tk.Label(header, text="🏆  Leaderboard",
+             font=("Helvetica", 22, "bold"),
+             fg=ACCENT, bg=CARD_COLOR).pack(side="left", padx=16, pady=12)
+
+    tk.Button(header, text="↩ Menu", command=lambda: switch_frame(build_menu()),
+              font=("Helvetica", 11),
+              bg=BUTTON_BG, fg=TEXT_LIGHT,
+              activebackground=BUTTON_HOVER,
+              relief="flat", padx=12, pady=6,
+              cursor="hand2", bd=0).pack(side="right", padx=12, pady=8)
+
+    filter_bar = tk.Frame(frame, bg=BG_COLOR)
+    filter_bar.pack(fill="x", padx=16, pady=10)
+
+    tk.Label(filter_bar, text="Filter:",
+             font=("Helvetica", 10), fg="#aaaaaa", bg=BG_COLOR).pack(side="left")
+
+    filter_var = tk.StringVar(value="All")
+
+    def update_filter_buttons():
+        for widget in filter_bar.winfo_children():
+            if isinstance(widget, tk.Radiobutton):
+                if widget.cget("text") == filter_var.get():
+                    widget.config(bg=ACCENT, fg="white")
+                else:
+                    widget.config(bg=BUTTON_BG, fg=TEXT_LIGHT)
+
+    for option in ("All", "Easy", "Medium", "Hard"):
+        rb = tk.Radiobutton(filter_bar, text=option, variable=filter_var,
+                            value=option,
+                            command=lambda: (update_filter_buttons(), refresh_list()),
+                            font=("Helvetica", 10),
+                            fg=TEXT_LIGHT, bg=BUTTON_BG,
+                            activebackground=BUTTON_HOVER,
+                            activeforeground="white",
+                            selectcolor=ACCENT, indicatoron=0,
+                            relief="flat", padx=10, pady=4, cursor="hand2")
+        rb.pack(side="left", padx=4)
+
+    tk.Label(filter_bar, text="   Search:",
+             font=("Helvetica", 10), fg="#aaaaaa", bg=BG_COLOR).pack(side="left", padx=(10, 4))
+
+    search_var = tk.StringVar()
+    search_entry = tk.Entry(filter_bar, textvariable=search_var,
+                            font=("Helvetica", 11),
+                            bg="#2a2a4a", fg=TEXT_LIGHT,
+                            insertbackground=TEXT_LIGHT,
+                            relief="flat", bd=6, width=14)
+    search_entry.pack(side="left")
+
+    list_frame = tk.Frame(frame, bg=BG_COLOR)
+    list_frame.pack(fill="both", expand=True, padx=16, pady=(0, 16))
+
+    col_header = tk.Frame(list_frame, bg=CARD_COLOR)
+    col_header.pack(fill="x")
+    for label, width in [("#", 4), ("Player", 16), ("Score", 10),
+                          ("Difficulty", 10), ("Grid", 8), ("Date", 16)]:
+        tk.Label(col_header, text=label, font=("Helvetica", 10, "bold"),
+                 fg=ACCENT, bg=CARD_COLOR, width=width, anchor="w").pack(
+            side="left", padx=6, pady=6)
+
+    rows_frame = tk.Frame(list_frame, bg=BG_COLOR)
+    rows_frame.pack(fill="both", expand=True)
+
+    def refresh_list():
+        for widget in rows_frame.winfo_children():
+            widget.destroy()
+
+        data = load_leaderboard()
+
+        chosen_filter = filter_var.get()
+        if chosen_filter != "All":
+            data = [entry for entry in data if entry.get("difficulty") == chosen_filter]
+
+        search_text = search_var.get().strip().lower()
+        if search_text:
+            data = [entry for entry in data if search_text in entry.get("name", "").lower()]
+
+        data.sort(key=lambda entry: entry.get("score", 0), reverse=True)
+
+        if not data:
+            tk.Label(rows_frame, text="No entries yet — play a game first!",
+                     font=("Helvetica", 12), fg="#666688", bg=BG_COLOR).pack(pady=40)
+            return
+
+        for i, entry in enumerate(data):
+            row_bg = "#1f1f3a" if i % 2 == 0 else BG_COLOR
+            row = tk.Frame(rows_frame, bg=row_bg)
+            row.pack(fill="x")
+
+            rank_text = str(i + 1)
+            if i == 0:
+                rank_text = "🥇"
+            elif i == 1:
+                rank_text = "🥈"
+            elif i == 2:
+                rank_text = "🥉"
+
+            values = [
+                (rank_text, 4),
+                (entry.get("name", "-"), 16),
+                (str(entry.get("score", 0)), 10),
+                (entry.get("difficulty", "-"), 10),
+                (f"{entry.get('grid_size', '?')}×{entry.get('grid_size', '?')}", 8),
+                (entry.get("date", "-"), 16),
+            ]
+            for text, width in values:
+                tk.Label(row, text=text, font=("Helvetica", 11),
+                         fg=TEXT_LIGHT, bg=row_bg, width=width, anchor="w").pack(
+                    side="left", padx=6, pady=5)
+
+    search_var.trace_add("write", lambda *args: refresh_list())
+    update_filter_buttons()
+    refresh_list()
 
     return frame
 
