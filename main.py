@@ -116,3 +116,28 @@ def on_play():
         f"Mode   : {chosen_diff} ({chosen_size}×{chosen_size} grid)\n\n"
         "(Game board coming in Step 2!)"
     )
+
+play_btn = tk.Button(root,
+                     text="▶   Play",
+                     command=on_play,
+                     font=("Helvetica", 14, "bold"),
+                     bg=ACCENT, fg="white",
+                     activebackground=ACCENT_DARK,
+                     activeforeground="white",
+                     relief="flat",
+                     padx=32, pady=12,
+                     cursor="hand2", bd=0)
+play_btn.pack(pady=(0, 40))
+ 
+# ─── Center the window on screen ──────────────────────────────────────────────
+root.update_idletasks()                      # force tkinter to calculate sizes
+w = root.winfo_width()
+h = root.winfo_height()
+sw = root.winfo_screenwidth()
+sh = root.winfo_screenheight()
+root.geometry(f"+{(sw - w) // 2}+{(sh - h) // 2}")
+ 
+# ─── Start the event loop ─────────────────────────────────────────────────────
+# mainloop() hands control to tkinter — it listens for clicks, keypresses, etc.
+# Nothing after this line runs until the window is closed.
+root.mainloop()
