@@ -19,5 +19,12 @@
     "difficulty": "Hard",
     "grid_size": 10,
     "date": "2026-06-14 19:56"
+  },
+  {
+    "name": "cristiano",
+    "score": 1912,
+    "difficulty": "Easy",
+    "grid_size": 4,
+    "date": "2026-06-14 20:32"
   }
 ]
