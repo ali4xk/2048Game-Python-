@@ -16,6 +16,7 @@ ACCENT_DARK  = "#c73652"
 BUTTON_BG    = "#533483"
 BUTTON_HOVER = "#6a45a8"
 TEXT_LIGHT   = "#e0e0e0"
+HARD_COL = "#edc850"
 
 TILE_COLORS = {
     0:    ("#cdc1b4", "#776e65"),
@@ -155,9 +156,13 @@ def switch_frame(new_frame):
 def build_menu():
     frame = tk.Frame(root, bg=BG_COLOR)
 
+    tk.Label(frame, text="Built by Muhammad Ali (@ali4xk)",
+             font=("Helvetica", 9),
+             fg="#666688", bg=BG_COLOR).pack(pady=(10, 0))
+
     tk.Label(frame, text="2048",
              font=("Helvetica", 72, "bold"),
-             fg=ACCENT, bg=BG_COLOR).pack(pady=(40, 0))
+             fg=ACCENT, bg=BG_COLOR).pack(pady=(20, 0))
 
     tk.Label(frame, text="Slide  •  Merge  •  Conquer",
              font=("Helvetica", 13),
@@ -274,6 +279,23 @@ def build_game(player_name, difficulty, size):
     def back_to_menu():
         switch_frame(build_menu())
 
+    def quit_game():
+        confirm = messagebox.askyesno(
+            "Quit Game",
+            f"Quit and save your current score ({board.score})?"
+        )
+        if not confirm:
+            return
+        save_score(player_name, board.score, difficulty, size)
+        root.destroy()
+
+    tk.Button(header, text="✕ Quit", command=quit_game,
+              font=("Helvetica", 10),
+              bg=ACCENT, fg="white",
+              activebackground=ACCENT_DARK,
+              relief="flat", padx=12, pady=5,
+              cursor="hand2", bd=0).pack(side="right", padx=(4, 12), pady=8)
+
     tk.Button(header, text="🏆 Board",
               command=lambda: switch_frame(build_leaderboard()),
               font=("Helvetica", 10),
@@ -348,11 +370,11 @@ def build_game(player_name, difficulty, size):
     def on_key_press(event):
         direction = KEY_MAP.get(event.keysym)
         if direction is None:
-            return  
+            return  # ignore any key we don't care about
 
         moved = board.move(direction)
         if not moved:
-            return 
+            return  # nothing changed (e.g. pressed left but already at left wall)
 
         draw_board()
 

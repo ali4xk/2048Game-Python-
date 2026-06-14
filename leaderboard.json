@@ -5,5 +5,19 @@
     "difficulty": "Easy",
     "grid_size": 4,
     "date": "2026-06-12 17:25"
+  },
+  {
+    "name": "ali4xk",
+    "score": 876,
+    "difficulty": "Easy",
+    "grid_size": 4,
+    "date": "2026-06-14 19:52"
+  },
+  {
+    "name": "ii",
+    "score": 68,
+    "difficulty": "Hard",
+    "grid_size": 10,
+    "date": "2026-06-14 19:56"
   }
 ]
